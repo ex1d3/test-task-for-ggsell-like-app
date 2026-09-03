@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: shop
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/00001_init.up.sql:/docker-entrypoint-initdb.d/00001_init.sql:ro
+
+  seed:
+    build:
+      context: .
+      dockerfile: seed.Dockerfile
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/shop?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  provider-a:
+    build:
+      context: .
+      dockerfile: provider.Dockerfile
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/shop?sslmode=disable
+      HTTP_ADDRESS: 0.0.0.0:8081
+      FAILURE_RATE: "0.7"
+      TIMEOUT_RATE: "0.2"
+      TIMEOUT: 5s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+  provider-b:
+    build:
+      context: .
+      dockerfile: provider.Dockerfile
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/shop?sslmode=disable
+      HTTP_ADDRESS: 0.0.0.0:8082
+      FAILURE_RATE: "0.1"
+      TIMEOUT_RATE: "0.1"
+      TIMEOUT: 5s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    ports:
+      - "8082:8082"
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: app.Dockerfile
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/shop?sslmode=disable
+      HTTP_ADDRESS: 0.0.0.0:8080
+      PROVIDER_A_URL: http://provider-a:8081
+      PROVIDER_B_URL: http://provider-b:8082
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+      provider-a:
+        condition: service_started
+      provider-b:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
