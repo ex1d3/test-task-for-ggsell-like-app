@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	deliveryattemptdomain "gg-sell-like-core/internal/order/deliveryattempt"
+	"gg-sell-like-core/internal/order/item"
 	productdomain "gg-sell-like-core/internal/product"
 	"gg-sell-like-core/pkg/transactor"
 	"github.com/google/uuid"
@@ -35,12 +36,21 @@ type DeliveryAttemptWriter interface {
 	) error
 }
 
+type ItemWriter interface {
+	Create(
+		ctx context.Context,
+		input item.CreateInput,
+		now time.Time,
+	) (item.Item, error)
+}
+
 type Usecase struct {
 	log *slog.Logger
 	tx  transactor.Transactor
 
 	repo                  Repository
 	productReader         ProductReader
+	itemWriter            ItemWriter
 	deliveryAttemptReader DeliveryAttemptReader
 	deliveryAttemptWriter DeliveryAttemptWriter
 
@@ -53,6 +63,7 @@ func NewUsecase(
 	tx transactor.Transactor,
 	repo Repository,
 	productReader ProductReader,
+	itemWriter ItemWriter,
 	deliveryAttemptReader DeliveryAttemptReader,
 	deliveryAttemptWriter DeliveryAttemptWriter,
 	providerA Provider,
@@ -63,6 +74,7 @@ func NewUsecase(
 		tx:                    tx,
 		repo:                  repo,
 		productReader:         productReader,
+		itemWriter:            itemWriter,
 		deliveryAttemptReader: deliveryAttemptReader,
 		deliveryAttemptWriter: deliveryAttemptWriter,
 		providerA:             providerA,
@@ -71,7 +83,7 @@ func NewUsecase(
 }
 
 type CreateInput struct {
-	SKU string
+	SKUs []string
 }
 
 var (
@@ -83,18 +95,51 @@ func (uc *Usecase) Create(
 	input CreateInput,
 	now time.Time,
 ) (Order, error) {
-	product, err := uc.productReader.GetBySKU(ctx, input.SKU)
-	switch {
-	case errors.Is(err, productdomain.ErrNotFound):
-		return Order{}, ErrInvalidSKU
-	}
+	var order Order
+	if err := uc.tx.WithTransaction(
+		ctx,
+		transactor.Options{
+			IsolationLevel: transactor.IsolationLevelReadCommitted,
+		},
+		func(ctx context.Context) error {
+			var totalAmount int64
+			skus := make(map[string]int64, len(input.SKUs))
+			for _, sku := range input.SKUs {
+				product, err := uc.productReader.GetBySKU(ctx, sku)
+				switch {
+				case errors.Is(err, productdomain.ErrNotFound):
+					return ErrInvalidSKU
+				}
+				totalAmount += product.Price
+				skus[sku] = product.Price
+			}
 
-	order := NewOrder(input.SKU, product.Price, now)
-	orderID, err := uc.repo.Create(ctx, order)
-	if err != nil {
-		return Order{}, fmt.Errorf("create: %w", err)
+			order = NewOrder(totalAmount, now)
+			orderID, err := uc.repo.Create(ctx, order)
+			if err != nil {
+				return fmt.Errorf("create: %w", err)
+			}
+			order.ID = orderID
+
+			for sku, amount := range skus {
+				if _, err := uc.itemWriter.Create(
+					ctx,
+					item.CreateInput{
+						OrderID: orderID,
+						SKU:     sku,
+						Amount:  amount,
+					},
+					now,
+				); err != nil {
+					return fmt.Errorf("create item: %w", err)
+				}
+			}
+
+			return nil
+		},
+	); err != nil {
+		return Order{}, err
 	}
-	order.ID = orderID
 
 	return order, nil
 }

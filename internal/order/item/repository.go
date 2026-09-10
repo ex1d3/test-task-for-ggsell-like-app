@@ -1,8 +1,7 @@
-package order
+package item
 
 import (
 	"context"
-	"errors"
 	"time"
 )
 
@@ -12,12 +11,20 @@ type ListInput struct {
 }
 
 type ListFilter struct {
-	Statuses []Status
+	OrderID int64
 }
 
 type ListPagination struct {
 	Limit int64
 	Skip  int64
+}
+
+type CountInput struct {
+	Filter CountFilter
+}
+
+type CountFilter struct {
+	OrderID int64
 }
 
 type UpdateInput struct {
@@ -32,15 +39,13 @@ type UpdateFilter struct {
 
 type UpdateData struct {
 	Status    Status
+	Code      string
 	UpdatedAt time.Time
 }
 
-var (
-	ErrNotFound = errors.New("not found")
-)
-
 type Repository interface {
-	GetByID(ctx context.Context, id int64) (Order, error)
-	Create(ctx context.Context, o Order) (int64, error)
+	List(ctx context.Context, input ListInput) ([]Item, error)
+	Count(ctx context.Context, input CountInput) (int64, error)
+	Create(ctx context.Context, i Item) (int64, error)
 	Update(ctx context.Context, input UpdateInput) (int64, error)
 }

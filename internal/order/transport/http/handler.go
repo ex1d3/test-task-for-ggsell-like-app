@@ -98,9 +98,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 type order struct {
 	ID        int64              `json:"id"`
 	Status    orderdomain.Status `json:"status"`
-	SKU       string             `json:"sku"`
 	Amount    int64              `json:"amount"`
-	Code      string             `json:"code,omitempty"`
 	CreatedAt time.Time          `json:"createdAt"`
 	UpdatedAt time.Time          `json:"updatedAt"`
 }
@@ -109,9 +107,7 @@ func orderToHTTP(o orderdomain.Order) order {
 	return order{
 		ID:        o.ID,
 		Status:    o.Status,
-		SKU:       o.SKU,
 		Amount:    o.Amount,
-		Code:      o.Code,
 		CreatedAt: o.CreatedAt,
 		UpdatedAt: o.UpdatedAt,
 	}

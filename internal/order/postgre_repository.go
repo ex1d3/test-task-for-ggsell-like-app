@@ -50,9 +50,7 @@ func (r *PostgreRepository) GetByID(
 		SELECT 
 		    id,
 		    status,
-		    sku,
 		    amount,
-		    code,
 		    created_at,
 		    updated_at
 		FROM orders
@@ -62,9 +60,7 @@ func (r *PostgreRepository) GetByID(
 	).Scan(
 		&order.ID,
 		&order.Status,
-		&order.SKU,
 		&order.Amount,
-		&code,
 		&order.CreatedAt,
 		&order.UpdatedAt,
 	); err != nil {
@@ -88,16 +84,14 @@ func (r *PostgreRepository) Create(ctx context.Context, o Order) (int64, error) 
 	if err := transactor.SelectExecutor(ctx, r.db).QueryRow(ctx, `
 		INSERT INTO orders (
 		    status,
-		    sku,
 		    amount,
 		    created_at,
 		    updated_at
 		) 
-		VALUES ($1, $2, $3, $4, $5)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id
 	`,
 		o.Status,
-		o.SKU,
 		o.Amount,
 		o.CreatedAt,
 		o.UpdatedAt,
@@ -120,13 +114,6 @@ func (r *PostgreRepository) Update(
 		args = append(args, input.Data.Status)
 		set = append(set, fmt.Sprintf(
 			"status = $%d",
-			len(args),
-		))
-	}
-	if input.Data.Code != "" {
-		args = append(args, input.Data.Code)
-		set = append(set, fmt.Sprintf(
-			"code = $%d",
 			len(args),
 		))
 	}
