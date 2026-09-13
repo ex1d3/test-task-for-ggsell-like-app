@@ -484,7 +484,9 @@ func (p *DeliveryProcessor) processDeliveryAttempt(
 
 		if err := p.tx.WithTransaction(
 			ctx,
-			transactor.Options{},
+			transactor.Options{
+				IsolationLevel: transactor.IsolationLevelReadCommitted,
+			},
 			func(ctx context.Context) error {
 				if err := p.itemWriter.UpdateStatus(
 					ctx,
@@ -597,7 +599,9 @@ func (p *DeliveryProcessor) processDeliveryAttempt(
 
 	return p.tx.WithTransaction(
 		ctx,
-		transactor.Options{},
+		transactor.Options{
+			IsolationLevel: transactor.IsolationLevelReadCommitted,
+		},
 		func(ctx context.Context) error {
 			if err := p.deliveryAttemptWriter.UpdateStatus(
 				ctx,
