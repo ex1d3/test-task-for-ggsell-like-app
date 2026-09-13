@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	providerdomain "gg-sell-like-core/internal/provider"
-	"gg-sell-like-core/pkg/xhttp"
+	"gg-sell-like-core/pkg/httpx"
 	"log/slog"
 	"net/http"
 	"time"
@@ -44,10 +44,10 @@ type issueResponse struct {
 func (h *Handler) Issue(w http.ResponseWriter, r *http.Request) {
 	var req issueRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		if err := xhttp.WriteJSON(
+		if err := httpx.WriteJSON(
 			w,
 			http.StatusBadRequest,
-			xhttp.NewErrResponse("invalid body"),
+			httpx.NewErrResponse("invalid body"),
 		); err != nil {
 			h.log.Error("write json on invalid body", "err", err)
 		}
@@ -65,34 +65,34 @@ func (h *Handler) Issue(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, providerdomain.ErrOutOfStock):
-			if err := xhttp.WriteJSON(
+			if err := httpx.WriteJSON(
 				w,
 				http.StatusConflict,
-				xhttp.NewErrResponse("out of stock"),
+				httpx.NewErrResponse("out of stock"),
 			); err != nil {
 				h.log.Error("write json on out of stock", "err", err)
 			}
 		case errors.Is(err, providerdomain.ErrIssueFailed):
-			if err := xhttp.WriteJSON(
+			if err := httpx.WriteJSON(
 				w,
 				http.StatusInternalServerError,
-				xhttp.NewErrResponse("issue failed"),
+				httpx.NewErrResponse("issue failed"),
 			); err != nil {
 				h.log.Error("write json on issue failed", "err", err)
 			}
 		case errors.Is(err, providerdomain.ErrTimedOut):
-			if err := xhttp.WriteJSON(
+			if err := httpx.WriteJSON(
 				w,
 				http.StatusRequestTimeout,
-				xhttp.NewErrResponse("timed out"),
+				httpx.NewErrResponse("timed out"),
 			); err != nil {
 				h.log.Error("write json on timed out", "err", err)
 			}
 		default:
-			if err := xhttp.WriteJSON(
+			if err := httpx.WriteJSON(
 				w,
 				http.StatusInternalServerError,
-				xhttp.NewErrResponse("internal error"),
+				httpx.NewErrResponse("internal error"),
 			); err != nil {
 				h.log.Error("write json on internal error", "err", err)
 			}
@@ -100,7 +100,7 @@ func (h *Handler) Issue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := xhttp.WriteJSON(
+	if err := httpx.WriteJSON(
 		w,
 		http.StatusOK,
 		issueResponse{

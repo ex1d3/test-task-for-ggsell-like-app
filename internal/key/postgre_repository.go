@@ -53,11 +53,45 @@ func (r *PostgreRepository) GetByID(ctx context.Context, id int64) (Key, error) 
 	return key, nil
 }
 
+func (r *PostgreRepository) GetUsed(
+	ctx context.Context,
+) (Key, error) {
+	var key Key
+	if err := transactor.SelectExecutor(ctx, r.db).QueryRow(ctx, `
+		SELECT 
+		    id,
+		    sku,
+		    value,
+		    is_used,
+		    created_at,
+		    updated_at
+		FROM keys
+		WHERE is_used = true
+		LIMIT 1
+	`,
+	).Scan(
+		&key.ID,
+		&key.SKU,
+		&key.Value,
+		&key.Used,
+		&key.CreatedAt,
+		&key.UpdatedAt,
+	); err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return Key{}, ErrNotFound
+		default:
+			return Key{}, fmt.Errorf("query rows: %w", err)
+		}
+	}
+
+	return key, nil
+}
+
 func (r *PostgreRepository) GetUnusedBySKU(
 	ctx context.Context,
 	sku string,
 ) (Key, error) {
-	fmt.Println("sku", sku)
 	var key Key
 	if err := transactor.SelectExecutor(ctx, r.db).QueryRow(ctx, `
 		SELECT 

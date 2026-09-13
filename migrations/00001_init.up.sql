@@ -11,24 +11,28 @@ CREATE TABLE products
 
 CREATE TABLE orders
 (
-    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    status     TEXT        NOT NULL,
-    amount     BIGINT      NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL
+    id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    status           TEXT        NOT NULL,
+    amount           BIGINT      NOT NULL,
+    delivered_amount BIGINT      NOT NULL,
+    created_at       TIMESTAMPTZ NOT NULL,
+    updated_at       TIMESTAMPTZ NOT NULL
 );
 
 CREATE TABLE order_items
 (
+    ID         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     order_id   BIGINT      NOT NULL REFERENCES orders (id),
     sku        TEXT        NOT NULL REFERENCES products (sku),
-    code       TEXT        NOT NULL UNIQUE,
+    amount     BIGINT      NOT NULL,
+    code       TEXT,
     status     TEXT        NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE UNIQUE INDEX order_items_order_id_sku_idx ON order_items (order_id, sku);
+CREATE INDEX order_items_order_id_idx ON order_items (order_id);
+CREATE UNIQUE INDEX order_items_code_unique_if_not_null_idx ON order_items (code) WHERE code IS NOT NULL;
 
 CREATE TABLE keys
 (
@@ -43,7 +47,7 @@ CREATE TABLE keys
 CREATE TABLE issues
 (
     request_id TEXT PRIMARY KEY,
-    key_id     BIGINT      NOT NULL UNIQUE REFERENCES keys (id),
+    key_id     BIGINT      NOT NULL REFERENCES keys (id), -- NOT UNIQUE DUE TO DOUBLE ISSUE REQUIREMENT
     created_at TIMESTAMPTZ NOT NULL
 );
 

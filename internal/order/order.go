@@ -3,11 +3,12 @@ package order
 import "time"
 
 type Order struct {
-	ID        int64
-	Status    Status
-	Amount    int64
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID              int64
+	Status          Status
+	Amount          int64
+	DeliveredAmount int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 func NewOrder(
@@ -36,12 +37,11 @@ type Status string
 const (
 	StatusUnknown            Status = ""
 	StatusCreated            Status = "created"
+	StatusPaymentFailed      Status = "payment_failed"
 	StatusPaid               Status = "paid"
 	StatusDelivering         Status = "delivering"
 	StatusPartiallyDelivered Status = "partially_delivered"
 	StatusDelivered          Status = "delivered"
-	StatusPaymentFailed      Status = "payment_failed"
-	StatusOutOfStock         Status = "out_of_stock"
 	StatusDeliveryFailed     Status = "delivery_failed"
 )
 

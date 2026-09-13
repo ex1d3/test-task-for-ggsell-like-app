@@ -22,6 +22,7 @@ type IssueWriter interface {
 
 type KeyReader interface {
 	GetByID(ctx context.Context, id int64) (keydomain.Key, error)
+	GetUsed(ctx context.Context) (keydomain.Key, error)
 	GetUnusedBySKU(ctx context.Context, sku string) (keydomain.Key, error)
 }
 
@@ -32,9 +33,10 @@ type KeyWriter interface {
 type Provider struct {
 	log *slog.Logger
 
-	failureRate float64
-	timeoutRate float64
-	timeout     time.Duration
+	doubleIssueRate float64
+	failureRate     float64
+	timeoutRate     float64
+	timeout         time.Duration
 
 	keyReader   KeyReader
 	keyWriter   KeyWriter
@@ -46,6 +48,7 @@ type Provider struct {
 
 func NewProvider(
 	log *slog.Logger,
+	doubleIssueRate float64,
 	failureRate float64,
 	timeoutRate float64,
 	timeout time.Duration,
@@ -56,15 +59,16 @@ func NewProvider(
 	tx transactor.Transactor,
 ) *Provider {
 	return &Provider{
-		log:         log.With("component", "provider"),
-		failureRate: failureRate,
-		timeoutRate: timeoutRate,
-		timeout:     timeout,
-		keyReader:   keyReader,
-		keyWriter:   keyWriter,
-		issueReader: issueReader,
-		issueWriter: issueWriter,
-		tx:          tx,
+		log:             log.With("component", "provider"),
+		doubleIssueRate: doubleIssueRate,
+		failureRate:     failureRate,
+		timeoutRate:     timeoutRate,
+		timeout:         timeout,
+		keyReader:       keyReader,
+		keyWriter:       keyWriter,
+		issueReader:     issueReader,
+		issueWriter:     issueWriter,
+		tx:              tx,
 	}
 }
 
@@ -102,6 +106,30 @@ func (p *Provider) Issue(
 
 		p.log.Info("existing issue found", "request_id", input.RequestID)
 		return key.Value, nil
+	}
+
+	if r < p.doubleIssueRate {
+		p.log.Info("trying to commit double issue", "request_id", input.RequestID)
+		key, err := p.keyReader.GetUsed(ctx)
+		if err == nil {
+			if _, err := p.issueWriter.Create(
+				ctx,
+				issuedomain.CreateInput{
+					RequestID: input.RequestID,
+					KeyID:     key.ID,
+				},
+				now,
+			); err != nil {
+				return "", fmt.Errorf("create issue: %w", err)
+			}
+
+			p.log.Info("double issue succeed", "request_id", input.RequestID)
+
+			return key.Value, nil
+		}
+
+		p.log.Info("no used keys, proceeding", "request_id", input.RequestID)
+
 	}
 
 	if r < p.failureRate {
@@ -149,12 +177,7 @@ func (p *Provider) Issue(
 					},
 					now,
 				); err != nil {
-					switch {
-					case errors.Is(err, keydomain.ErrAlreadyExists):
-						return nil
-					default:
-						return fmt.Errorf("create issue: %w", err)
-					}
+					return fmt.Errorf("create issue: %w", err)
 				}
 
 				keyValue = key.Value

@@ -26,13 +26,15 @@ type UpdateInput struct {
 }
 
 type UpdateFilter struct {
-	ID     int64
-	Status Status
+	ID              int64
+	Status          Status
+	DeliveredAmount *int64
 }
 
 type UpdateData struct {
-	Status    Status
-	UpdatedAt time.Time
+	Status          Status
+	DeliveredAmount *int64
+	UpdatedAt       time.Time
 }
 
 var (

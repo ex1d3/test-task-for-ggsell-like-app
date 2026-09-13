@@ -9,21 +9,21 @@ import (
 )
 
 type Handler struct {
-	t  *timer.Fixed
-	uc *orderdomain.Usecase
+	t *timer.Fixed
+	p *orderdomain.DeliveryProcessor
 }
 
 func NewHandler(
 	ctx context.Context,
 	log *slog.Logger,
-	uc *orderdomain.Usecase,
+	p *orderdomain.DeliveryProcessor,
 ) *Handler {
 	return &Handler{
-		uc: uc,
+		p: p,
 		t: timer.NewFixed(
 			ctx,
 			func(ctx context.Context) error {
-				return uc.Deliver(ctx, time.Now().UTC())
+				return p.Deliver(ctx, time.Now().UTC())
 			},
 			log.With("component", "order.timer"),
 			time.Second*5,

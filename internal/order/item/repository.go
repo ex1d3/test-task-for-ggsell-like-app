@@ -2,6 +2,7 @@ package item
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -11,7 +12,8 @@ type ListInput struct {
 }
 
 type ListFilter struct {
-	OrderID int64
+	OrderID  int64
+	Statuses []Status
 }
 
 type ListPagination struct {
@@ -33,8 +35,9 @@ type UpdateInput struct {
 }
 
 type UpdateFilter struct {
-	ID     int64
-	Status Status
+	ID      int64
+	OrderID int64
+	Status  Status
 }
 
 type UpdateData struct {
@@ -42,6 +45,10 @@ type UpdateData struct {
 	Code      string
 	UpdatedAt time.Time
 }
+
+var (
+	ErrCodeAlreadyUsed = errors.New("code already used")
+)
 
 type Repository interface {
 	List(ctx context.Context, input ListInput) ([]Item, error)

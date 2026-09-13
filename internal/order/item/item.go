@@ -6,16 +6,18 @@ type Item struct {
 	ID        int64
 	OrderID   int64
 	SKU       string
+	Amount    int64
 	Code      string
 	Status    Status
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
-func NewItem(orderID int64, sku string, now time.Time) Item {
+func NewItem(orderID int64, sku string, amount int64, now time.Time) Item {
 	return Item{
 		OrderID:   orderID,
 		SKU:       sku,
+		Amount:    amount,
 		Status:    StatusPending,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -25,6 +27,10 @@ func NewItem(orderID int64, sku string, now time.Time) Item {
 type Status string
 
 const (
-	StatusUnknown Status = ""
-	StatusPending Status = "pending"
+	StatusUnknown        Status = ""
+	StatusPending        Status = "pending"
+	StatusDelivering     Status = "delivering"
+	StatusDelivered      Status = "delivered"
+	StatusOutOfStock     Status = "out_of_stock"
+	StatusDeliveryFailed Status = "delivery_failed"
 )

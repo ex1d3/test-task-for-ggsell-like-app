@@ -28,13 +28,24 @@ type ProviderConfig struct {
 	DatabaseURL string
 	HttpAddress string
 
-	FailureRate float64
-	TimeoutRate float64
+	DoubleIssueRate float64
+	FailureRate     float64
+	TimeoutRate     float64
 
 	Timeout time.Duration
 }
 
 func NewProviderConfig() (*ProviderConfig, error) {
+	doubleIssueRateStr := os.Getenv("DOUBLE_ISSUE_RATE")
+	doubleIssueRate, err := strconv.ParseFloat(doubleIssueRateStr, 64)
+	if err != nil {
+		return nil, errors.New("invalid double issue rate")
+	}
+
+	if doubleIssueRate < 0 || doubleIssueRate > 1 {
+		return nil, errors.New("double issue rate must be between 0 and 1")
+	}
+
 	failureRateStr := os.Getenv("FAILURE_RATE")
 	failureRate, err := strconv.ParseFloat(failureRateStr, 64)
 	if err != nil {
@@ -56,7 +67,7 @@ func NewProviderConfig() (*ProviderConfig, error) {
 	}
 
 	if failureRate+timeoutRate > 1 {
-		return nil, errors.New("failure rate + timeout rate must not exceed 1")
+		return nil, errors.New("failure rate + timeout rate + double issue rate must not exceed 1")
 	}
 
 	timeout, err := time.ParseDuration(os.Getenv("TIMEOUT"))
@@ -65,11 +76,12 @@ func NewProviderConfig() (*ProviderConfig, error) {
 	}
 
 	return &ProviderConfig{
-		DatabaseURL: os.Getenv("DATABASE_URL"), // "postgres://postgres:postgres@localhost:5432/shop?sslmode=disable",
-		HttpAddress: os.Getenv("HTTP_ADDRESS"), // "0.0.0.0:8080",
-		FailureRate: failureRate,
-		TimeoutRate: timeoutRate,
-		Timeout:     timeout,
+		DatabaseURL:     os.Getenv("DATABASE_URL"), // "postgres://postgres:postgres@localhost:5432/shop?sslmode=disable",
+		HttpAddress:     os.Getenv("HTTP_ADDRESS"), // "0.0.0.0:8080",
+		DoubleIssueRate: doubleIssueRate,
+		FailureRate:     failureRate,
+		TimeoutRate:     timeoutRate,
+		Timeout:         timeout,
 	}, nil
 }
 

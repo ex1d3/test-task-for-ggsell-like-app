@@ -60,6 +60,7 @@ func run(baseLog *slog.Logger, appLog *slog.Logger) error {
 
 	providerUC := provider.NewProvider(
 		baseLog,
+		cfg.DoubleIssueRate,
 		cfg.FailureRate,
 		cfg.TimeoutRate,
 		cfg.Timeout,

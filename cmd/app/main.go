@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"gg-sell-like-core/internal/order"
 	orderdeliveryattempt "gg-sell-like-core/internal/order/deliveryattempt"
+	orderitem "gg-sell-like-core/internal/order/item"
+	orderitemhttp "gg-sell-like-core/internal/order/item/transport/http"
 	orderhttp "gg-sell-like-core/internal/order/transport/http"
 	ordertimer "gg-sell-like-core/internal/order/transport/timer"
 	"gg-sell-like-core/internal/platform"
@@ -63,14 +65,33 @@ func run(baseLog *slog.Logger, appLog *slog.Logger) error {
 
 	httpClient := &http.Client{}
 
+	orderItemRepo := orderitem.NewPostgreRepository(db)
+	orderItemUC := orderitem.NewUsecase(orderItemRepo, tx)
+	orderItemHTTPHandler := orderitemhttp.NewHandler(orderItemUC, baseLog)
+	orderItemHTTPHandler.Register(mux)
+
 	orderRepo := order.NewPostgreRepository(db)
+	orderStatusUpdater := order.NewStatusUpdater(orderRepo)
 	orderProviderA := order.NewHttpProvider(cfg.ProviderAURL, httpClient)
 	orderProviderB := order.NewHttpProvider(cfg.ProviderBURL, httpClient)
 	orderUC := order.NewUsecase(
 		baseLog,
 		tx,
 		orderRepo,
+		orderStatusUpdater,
 		productRepo,
+		orderItemUC,
+		orderDeliveryAttemptUC,
+	)
+	orderPaymentGateway := order.NewNoopPaymentGateway()
+	orderDeliveryProcessor := order.NewDeliveryProcessor(
+		baseLog,
+		tx,
+		orderRepo,
+		orderStatusUpdater,
+		orderItemRepo,
+		orderItemUC,
+		orderPaymentGateway,
 		orderDeliveryAttemptRepo,
 		orderDeliveryAttemptUC,
 		orderProviderA,
@@ -78,7 +99,7 @@ func run(baseLog *slog.Logger, appLog *slog.Logger) error {
 	)
 	orderHTTPHandler := orderhttp.NewHandler(orderUC, baseLog)
 	orderHTTPHandler.Register(mux)
-	orderTimerHandler := ordertimer.NewHandler(ctx, baseLog, orderUC)
+	orderTimerHandler := ordertimer.NewHandler(ctx, baseLog, orderDeliveryProcessor)
 
 	webhookRepo := webhook.NewPostgreRepository(db)
 	webhookUC := webhook.NewUsecase(

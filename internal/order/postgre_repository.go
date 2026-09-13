@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"gg-sell-like-core/pkg/transactor"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"strings"
 )
@@ -45,12 +44,12 @@ func (r *PostgreRepository) GetByID(
 	id int64,
 ) (Order, error) {
 	var order Order
-	var code pgtype.Text
 	if err := transactor.SelectExecutor(ctx, r.db).QueryRow(ctx, `
 		SELECT 
 		    id,
 		    status,
 		    amount,
+		    delivered_amount,
 		    created_at,
 		    updated_at
 		FROM orders
@@ -61,6 +60,7 @@ func (r *PostgreRepository) GetByID(
 		&order.ID,
 		&order.Status,
 		&order.Amount,
+		&order.DeliveredAmount,
 		&order.CreatedAt,
 		&order.UpdatedAt,
 	); err != nil {
@@ -72,10 +72,6 @@ func (r *PostgreRepository) GetByID(
 		}
 	}
 
-	if code.Valid {
-		order.Code = code.String
-	}
-
 	return order, nil
 }
 
@@ -85,14 +81,16 @@ func (r *PostgreRepository) Create(ctx context.Context, o Order) (int64, error) 
 		INSERT INTO orders (
 		    status,
 		    amount,
+		    delivered_amount,
 		    created_at,
 		    updated_at
 		) 
-		VALUES ($1, $2, $3, $4)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id
 	`,
 		o.Status,
 		o.Amount,
+		o.DeliveredAmount,
 		o.CreatedAt,
 		o.UpdatedAt,
 	).Scan(&id); err != nil {
@@ -124,6 +122,13 @@ func (r *PostgreRepository) Update(
 			len(args),
 		))
 	}
+	if input.Data.DeliveredAmount != nil {
+		args = append(args, *input.Data.DeliveredAmount)
+		set = append(set, fmt.Sprintf(
+			"delivered_amount = $%d",
+			len(args),
+		))
+	}
 
 	if len(set) == 0 {
 		return 0, nil
@@ -140,6 +145,13 @@ func (r *PostgreRepository) Update(
 		args = append(args, input.Filter.Status)
 		where = append(where, fmt.Sprintf(
 			"status = $%d",
+			len(args),
+		))
+	}
+	if input.Filter.DeliveredAmount != nil {
+		args = append(args, *input.Filter.DeliveredAmount)
+		where = append(where, fmt.Sprintf(
+			"delivered_amount = $%d",
 			len(args),
 		))
 	}

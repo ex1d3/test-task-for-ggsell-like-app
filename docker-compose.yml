@@ -34,7 +34,8 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/shop?sslmode=disable
       HTTP_ADDRESS: 0.0.0.0:8081
-      FAILURE_RATE: "0.7"
+      DOUBLE_ISSUE_RATE: "0.4"
+      FAILURE_RATE: "0.3"
       TIMEOUT_RATE: "0.2"
       TIMEOUT: 5s
     depends_on:
@@ -53,6 +54,7 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/shop?sslmode=disable
       HTTP_ADDRESS: 0.0.0.0:8082
+      DOUBLE_ISSUE_RATE: "0.1"
       FAILURE_RATE: "0.1"
       TIMEOUT_RATE: "0.1"
       TIMEOUT: 5s

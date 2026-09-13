@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	orderdomain "gg-sell-like-core/internal/order"
-	"gg-sell-like-core/pkg/xhttp"
+	"gg-sell-like-core/pkg/httpx"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -32,7 +32,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 }
 
 type createRequest struct {
-	SKU string `json:"sku"`
+	SKUs []string `json:"skus"`
 }
 
 type createResponse struct {
@@ -43,39 +43,48 @@ type createResponse struct {
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		if err := xhttp.WriteJSON(
+		if err := httpx.WriteJSON(
 			w,
 			http.StatusBadRequest,
-			xhttp.NewErrResponse("invalid body"),
+			httpx.NewErrResponse("invalid body"),
 		); err != nil {
 			h.log.Error("write json on invalid body", "err", err)
 		}
 		return
 	}
 
-	order, err := h.uc.Create(
+	o, err := h.uc.Create(
 		r.Context(),
 		orderdomain.CreateInput{
-			SKU: req.SKU,
+			SKUs: req.SKUs,
 		},
 		time.Now().UTC(),
 	)
 	if err != nil {
 		switch {
 		case errors.Is(err, orderdomain.ErrInvalidSKU):
-			if err := xhttp.WriteJSON(
+			if err := httpx.WriteJSON(
 				w,
 				http.StatusBadRequest,
-				xhttp.NewErrResponse("invalid sku"),
+				httpx.NewErrResponse("invalid sku"),
 			); err != nil {
 				h.log.Error("write json on invalid sku", "err", err)
 			}
 			return
+		case errors.Is(err, orderdomain.ErrAtLeastOneSKURequired):
+			if err := httpx.WriteJSON(
+				w,
+				http.StatusBadRequest,
+				httpx.NewErrResponse("at least one sku required"),
+			); err != nil {
+				h.log.Error("write json on at least one sku required", "err", err)
+			}
+			return
 		default:
-			if err := xhttp.WriteJSON(
+			if err := httpx.WriteJSON(
 				w,
 				http.StatusInternalServerError,
-				xhttp.NewErrResponse("internal error"),
+				httpx.NewErrResponse("internal error"),
 			); err != nil {
 				h.log.Error("write json on internal error", "err", err)
 			}
@@ -83,12 +92,12 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := xhttp.WriteJSON(
+	if err := httpx.WriteJSON(
 		w,
 		http.StatusOK,
 		createResponse{
 			Status:  "ok",
-			OrderID: order.ID,
+			OrderID: o.ID,
 		},
 	); err != nil {
 		h.log.Error("write json on ok", "err", err)
@@ -96,20 +105,22 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 type order struct {
-	ID        int64              `json:"id"`
-	Status    orderdomain.Status `json:"status"`
-	Amount    int64              `json:"amount"`
-	CreatedAt time.Time          `json:"createdAt"`
-	UpdatedAt time.Time          `json:"updatedAt"`
+	ID              int64              `json:"id"`
+	Status          orderdomain.Status `json:"status"`
+	Amount          int64              `json:"amount"`
+	DeliveredAmount int64              `json:"deliveredAmount"`
+	CreatedAt       time.Time          `json:"createdAt"`
+	UpdatedAt       time.Time          `json:"updatedAt"`
 }
 
 func orderToHTTP(o orderdomain.Order) order {
 	return order{
-		ID:        o.ID,
-		Status:    o.Status,
-		Amount:    o.Amount,
-		CreatedAt: o.CreatedAt,
-		UpdatedAt: o.UpdatedAt,
+		ID:              o.ID,
+		Status:          o.Status,
+		Amount:          o.Amount,
+		DeliveredAmount: o.DeliveredAmount,
+		CreatedAt:       o.CreatedAt,
+		UpdatedAt:       o.UpdatedAt,
 	}
 }
 
@@ -122,10 +133,10 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || id <= 0 {
-		if err := xhttp.WriteJSON(
+		if err := httpx.WriteJSON(
 			w,
 			http.StatusBadRequest,
-			xhttp.NewErrResponse("invalid id"),
+			httpx.NewErrResponse("invalid id"),
 		); err != nil {
 			h.log.Error("write json on invalid id", "err", err)
 		}
@@ -136,19 +147,19 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, orderdomain.ErrNotFound):
-			if err := xhttp.WriteJSON(
+			if err := httpx.WriteJSON(
 				w,
 				http.StatusNotFound,
-				xhttp.NewErrResponse("order not found"),
+				httpx.NewErrResponse("order not found"),
 			); err != nil {
 				h.log.Error("write json on order not found", "err", err)
 			}
 			return
 		default:
-			if err := xhttp.WriteJSON(
+			if err := httpx.WriteJSON(
 				w,
 				http.StatusInternalServerError,
-				xhttp.NewErrResponse("internal error"),
+				httpx.NewErrResponse("internal error"),
 			); err != nil {
 				h.log.Error("write json on internal error", "err", err)
 			}
@@ -156,7 +167,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := xhttp.WriteJSON(
+	if err := httpx.WriteJSON(
 		w,
 		http.StatusOK,
 		getByIDResponse{

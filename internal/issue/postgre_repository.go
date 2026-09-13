@@ -50,7 +50,7 @@ func (r *PostgreRepository) GetByRequest(
 }
 
 func (r *PostgreRepository) Create(ctx context.Context, i Issue) error {
-	tag, err := transactor.SelectExecutor(ctx, r.db).Exec(ctx, `
+	if _, err := transactor.SelectExecutor(ctx, r.db).Exec(ctx, `
 		INSERT INTO issues (
 		    request_id,
 		    key_id,
@@ -62,13 +62,8 @@ func (r *PostgreRepository) Create(ctx context.Context, i Issue) error {
 		i.RequestID,
 		i.KeyID,
 		i.CreatedAt,
-	)
-	if err != nil {
+	); err != nil {
 		return fmt.Errorf("exec: %w", err)
-	}
-
-	if tag.RowsAffected() == 0 {
-		return ErrAlreadyExists
 	}
 
 	return nil

@@ -1,4 +1,4 @@
-package xhttp
+package httpx
 
 type Response struct {
 	Status string `json:"status"`

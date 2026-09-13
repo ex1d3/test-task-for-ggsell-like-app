@@ -6,7 +6,7 @@ import (
 	"fmt"
 	webhookdomain "gg-sell-like-core/internal/webhook"
 	"gg-sell-like-core/pkg/currency"
-	"gg-sell-like-core/pkg/xhttp"
+	"gg-sell-like-core/pkg/httpx"
 	"log/slog"
 	"net/http"
 	"time"
@@ -46,10 +46,10 @@ type handleResponse struct {
 func (h *Handler) Handle(w http.ResponseWriter, r *http.Request) {
 	var req handleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		if err := xhttp.WriteJSON(
+		if err := httpx.WriteJSON(
 			w,
 			http.StatusBadRequest,
-			xhttp.NewErrResponse("invalid body"),
+			httpx.NewErrResponse("invalid body"),
 		); err != nil {
 			h.log.Error("write json on invalid body", "err", err)
 		}
@@ -69,34 +69,34 @@ func (h *Handler) Handle(w http.ResponseWriter, r *http.Request) {
 	); err != nil {
 		switch {
 		case errors.Is(err, webhookdomain.ErrInvalidStatus):
-			if err := xhttp.WriteJSON(
+			if err := httpx.WriteJSON(
 				w,
 				http.StatusBadRequest,
-				xhttp.NewErrResponse("invalid status"),
+				httpx.NewErrResponse("invalid status"),
 			); err != nil {
 				h.log.Error("write json on invalid status", "err", err)
 			}
 		case errors.Is(err, webhookdomain.ErrInvalidCurrency):
-			if err := xhttp.WriteJSON(
+			if err := httpx.WriteJSON(
 				w,
 				http.StatusBadRequest,
-				xhttp.NewErrResponse("invalid currency"),
+				httpx.NewErrResponse("invalid currency"),
 			); err != nil {
 				h.log.Error("write json on invalid currency", "err", err)
 			}
 		case errors.Is(err, webhookdomain.ErrOrderNotFound):
-			if err := xhttp.WriteJSON(
+			if err := httpx.WriteJSON(
 				w,
 				http.StatusInternalServerError,
-				xhttp.NewErrResponse("order not found"),
+				httpx.NewErrResponse("order not found"),
 			); err != nil {
 				h.log.Error("write json on invalid currency", "err", err)
 			}
 		default:
-			if err := xhttp.WriteJSON(
+			if err := httpx.WriteJSON(
 				w,
 				http.StatusInternalServerError,
-				xhttp.NewErrResponse(fmt.Sprintf("internal server err: %v", err)),
+				httpx.NewErrResponse(fmt.Sprintf("internal server err: %v", err)),
 			); err != nil {
 				h.log.Error("write json on internal error", "err", err)
 			}
@@ -104,7 +104,7 @@ func (h *Handler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := xhttp.WriteJSON(
+	if err := httpx.WriteJSON(
 		w,
 		http.StatusOK,
 		handleResponse{
